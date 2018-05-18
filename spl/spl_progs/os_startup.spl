@@ -3,6 +3,8 @@ alias disk_block S1;
 alias pid_init S2;
 alias counter S3;
 alias pcb S4;
+alias pid_exec S5;
+alias ptbr S6;
 
 //loading exception handler, timer & INT[1-7] interrupts
 memory_page = 7; 
@@ -30,9 +32,9 @@ pid_init = 0;
 PTBR = PAGE_TABLE + 8*pid_init;
 PTLR = 4;
 BP = (PTLR-1)*512;
-breakpoint;
 SP = BP;
 memory_page = 25;
+counter = 0;
 while (counter < PTLR) do
     [PTBR + 2*counter] = memory_page;
     [PTBR + 2*counter + 1] = "01";
@@ -50,6 +52,33 @@ pcb = READY_LIST + 32*pid_init;
 [pcb + 5] = PTBR;
 [pcb + 6] = PTLR;
 
-[28*512] = 0; //top of stack, 4th page
-breakpoint;
+
+//loading other executable
+memory_page = 29;
+disk_block = 25;
+load(memory_page,disk_block);
+
+
+//setting up executable page table
+pid_exec = 1;
+ptbr = PAGE_TABLE + 8*pid_exec;
+counter = 0;
+[ptbr + 2*counter] = 29;
+[ptbr + 2*counter + 1] = "01";
+counter = 3;
+[ptbr + 2*counter] = 32;
+[ptbr + 2*counter + 1] = "01";
+
+
+//setting up executable pcb 
+pcb = READY_LIST + 32*pid_exec;
+[pcb + 0] = pid_exec;
+[pcb + 1] = 1;
+[pcb + 2] = 1536;
+[pcb + 3] = 1536;
+[pcb + 5] = ptbr;
+[pcb + 6] = PTLR;
+
+
+[28*512] = 0; //top of stack, 4th page 
 ireturn;

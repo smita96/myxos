@@ -24,9 +24,9 @@ MOV R0, [R0]
 MOV R1, 2
 MOD R0, R1
 MOV R1, 0
-EQ R0, R1
+NE R0, R1
 JZ R0, 00062
-MOV R0, "Process-1"
+MOV R0, "Process-2"
 OUT R0
 JMP 00062
 MOV R0, 1
