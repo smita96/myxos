@@ -1,2 +1,71 @@
-print "In INT-1";
+alias sys_call_no S0;
+alias return_address S1;
+alias filename S2;
+alias counter S3;
+
+sys_call_no = [[PTBR + 2*((SP-1)/512)]*512 + (SP-1)%512];
+return_address = [PTBR + 2*((SP-2)/512)]*512 + (SP-2)%512;
+filename = [[PTBR + 2*((SP-3)/512)]*512 + (SP-3)%512];
+
+
+//Create system call
+if(sys_call_no == 1) then 
+    //searching the FAT for the filename
+    alias fat_idx S4;
+    counter = 0;
+    fat_idx = -1;
+    while(counter < 32) do
+        if([FAT + 8*counter] == filename) then
+            counter = -1;
+            break;
+        endif;
+        if([FAT + 8*counter + 2] == -1) then
+            fat_idx = counter; //free fat index
+        endif;
+        counter = counter + 1;
+    endwhile;
+
+    if(counter == -1) then 
+        [return_address] = 0; //file exists ==> success
+    else
+        if(fat_idx == -1) then 
+            [return_address] = -1;
+        else 
+            //searching for free disk block
+            alias block_idx S5;
+            counter = 0;
+            block_idx = -1;
+            while(counter < 448) do //after 447, swap area exists
+                if([DISK_LIST + counter] == 0) then
+                    block_idx = counter;
+                    break;
+                endif;
+                counter = counter + 1;
+            endwhile;
+            
+            if(block_idx == -1) then 
+                [return_address] = -1;
+            else 
+                //mark the disk block as used 
+                [DISK_LIST + block_idx] = 1;
+                //create the fat entry 
+                [FAT + 8*fat_idx] = filename;
+                [FAT + 8*fat_idx + 1] = 0;
+                [FAT + 8*fat_idx + 2] = block_idx;
+                //initialise the basic block 
+                load(1,block_idx);
+                counter = 0;
+                while(counter < 512) do 
+                    [SCRATCHPAD + counter] = -1;
+                    counter = counter + 1;
+                endwhile;
+                store(1,block_idx);
+                store(5,19);
+                store(6,20);
+                [return_address] = 0;
+            endif;
+        endif;
+    endif;
+endif;
+
 ireturn;

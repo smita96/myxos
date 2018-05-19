@@ -1,35 +1,35 @@
-alias currentPID S0;
-alias currentPCB S1;
-alias currentPhySP S2;
+alias current_pid S0;
+alias current_pcb S1;
+alias current_phy_sp S2;
 alias counter S3;
-alias newPID S4;
-alias newPCB S5;
+alias new_pid S4;
+alias new_pcb S5;
 
 
-currentPID = (PTBR - PAGE_TABLE) / 8;
-currentPCB = READY_LIST + 32*currentPID;
-currentPhySP = [PTBR + 2*(SP/512)]*512 + (SP%512);
+current_pid = (PTBR - PAGE_TABLE) / 8;
+current_pcb = READY_LIST + 32*current_pid;
+current_phy_sp = [PTBR + 2*(SP/512)]*512 + (SP%512);
 
 //saving the state of the current running process
-[currentPCB + 1] = 1; // running --> ready 
-[currentPCB + 2] = BP;
-[currentPCB + 3] = SP - 1; //as IP got pushed on the stack when interrupt occurred, the value of SP got incremented,its actual value is SP-1
+[current_pcb + 1] = 1; // running --> ready 
+[current_pcb + 2] = BP;
+[current_pcb + 3] = SP - 1; //as IP got pushed on the stack when interrupt occurred, the value of SP got incremented,its actual value is SP-1
 //IP is pushed on the stack something like that...
-[currentPCB + 4] = [currentPhySP];
-[currentPCB + 5] = PTBR; //check if this is necessary
-[currentPCB + 6] = PTLR; // ----do----
-[currentPCB + 7] = R0;
-[currentPCB + 8] = R1;
-[currentPCB + 9] = R2;
-[currentPCB + 10] = R3;
-[currentPCB + 11] = R4;
-[currentPCB + 12] = R5;
-[currentPCB + 13] = R6;
-[currentPCB + 14] = R7;
+[current_pcb + 4] = [current_phy_sp];
+[current_pcb + 5] = PTBR; //check if this is necessary
+[current_pcb + 6] = PTLR; // ----do----
+[current_pcb + 7] = R0;
+[current_pcb + 8] = R1;
+[current_pcb + 9] = R2;
+[current_pcb + 10] = R3;
+[current_pcb + 11] = R4;
+[current_pcb + 12] = R5;
+[current_pcb + 13] = R6;
+[current_pcb + 14] = R7;
 
 //finding process to be scheduled next
-counter = currentPID + 1;
-while(counter != currentPID) do
+counter = current_pid + 1;
+while(counter != current_pid) do
     if(counter == 32) then 
         counter = 0;
     endif;
@@ -38,25 +38,25 @@ while(counter != currentPID) do
     endif;
     counter = counter + 1;
 endwhile;
-newPID = counter;
+new_pid = counter;
 
 //load the state of the to-be-run process into registers
-newPCB = READY_LIST + 32*newPID;
-[newPCB + 1] = 2;
-BP = [newPCB + 2];
-SP = [newPCB + 3];
+new_pcb = READY_LIST + 32*new_pid;
+[new_pcb + 1] = 2;
+BP = [new_pcb + 2];
+SP = [new_pcb + 3];
 //something to do
-PTBR = [newPCB + 5];
-PTLR = [newPCB + 6];
-R0 = [newPCB + 7];
-R1 = [newPCB + 8];
-R2 = [newPCB + 9];
-R3 = [newPCB + 10];
-R4 = [newPCB + 11];
-R5 = [newPCB + 12];
-R6 = [newPCB + 13];
-R7 = [newPCB + 14];
+PTBR = [new_pcb + 5];
+PTLR = [new_pcb + 6];
+R0 = [new_pcb + 7];
+R1 = [new_pcb + 8];
+R2 = [new_pcb + 9];
+R3 = [new_pcb + 10];
+R4 = [new_pcb + 11];
+R5 = [new_pcb + 12];
+R6 = [new_pcb + 13];
+R7 = [new_pcb + 14];
 
 SP = SP + 1;
-[[PTBR + 2*(SP/512)]*512 + (SP%512)] = [newPCB + 4];
+[[PTBR + 2*(SP/512)]*512 + (SP%512)] = [new_pcb + 4];
 ireturn;

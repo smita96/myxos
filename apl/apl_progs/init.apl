@@ -1,12 +1,15 @@
-//program to print even numbers
+//program to create a file 
+
 integer main(){
-    integer counter;
-    counter = 0;
-    while(counter < 10) do
-        if(counter % 2 == 0) then
-            print("Process-1");
-        endif;
-        counter = counter + 1;
-    endwhile;
+    integer status;
+    status = Create("new_file.txt");
+    status = Create("new_file_1.txt");    
+    if(status == 0) then
+        print("File created");
+    else
+        print("File couldn't ");
+        print("be created");
+    endif;
+    breakpoint;
     return 0;
 }

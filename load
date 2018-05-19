@@ -1,18 +1,16 @@
 #!/bin/bash
 cd $HOME/myxos/xfs-interface/
 $HOME/myxos/xfs-interface/xfs-interface fdisk > /dev/null
-$HOME/myxos/spl/spl --int=timer $HOME/myxos/spl/spl_progs/timer.spl
+$HOME/myxos/spl/spl --int=1 $HOME/myxos/spl/spl_progs/int1.spl
 $HOME/myxos/spl/spl --int=7 $HOME/myxos/spl/spl_progs/int7.spl
 $HOME/myxos/spl/spl --exhandler $HOME/myxos/spl/spl_progs/exhandler.spl
 $HOME/myxos/spl/spl --os $HOME/myxos/spl/spl_progs/os_startup.spl
 $HOME/myxos/apl/apl $HOME/myxos/apl/apl_progs/init.apl
-$HOME/myxos/apl/apl $HOME/myxos/apl/apl_progs/odd.apl
 
 
 cd $HOME/myxos/xfs-interface/
-$HOME/myxos/xfs-interface/xfs-interface load --int=timer $HOME/myxos/spl/spl_progs/timer.xsm
+$HOME/myxos/xfs-interface/xfs-interface load --int=1 $HOME/myxos/spl/spl_progs/int1.xsm
 $HOME/myxos/xfs-interface/xfs-interface load --int=7 $HOME/myxos/spl/spl_progs/int7.xsm
 $HOME/myxos/xfs-interface/xfs-interface load --exhandler $HOME/myxos/spl/spl_progs/exhandler.xsm
 $HOME/myxos/xfs-interface/xfs-interface load --os $HOME/myxos/spl/spl_progs/os_startup.xsm
 $HOME/myxos/xfs-interface/xfs-interface load --init $HOME/myxos/apl/apl_progs/init.xsm
-$HOME/myxos/xfs-interface/xfs-interface load --exec $HOME/myxos/apl/apl_progs/odd.xsm
