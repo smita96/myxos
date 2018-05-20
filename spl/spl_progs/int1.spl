@@ -2,25 +2,26 @@ alias sys_call_no S0;
 alias return_address S1;
 alias filename S2;
 alias counter S3;
+alias fat_idx S4;
 
 sys_call_no = [[PTBR + 2*((SP-1)/512)]*512 + (SP-1)%512];
 return_address = [PTBR + 2*((SP-2)/512)]*512 + (SP-2)%512;
 filename = [[PTBR + 2*((SP-3)/512)]*512 + (SP-3)%512];
 
 
-//Create system call
+//create system call
 if(sys_call_no == 1) then 
     //searching the FAT for the filename
-    alias fat_idx S4;
     counter = 0;
     fat_idx = -1;
     while(counter < 32) do
-        if([FAT + 8*counter] == filename) then
-            counter = -1;
-            break;
-        endif;
-        if([FAT + 8*counter + 2] == -1) then
-            fat_idx = counter; //free fat index
+        if([FAT + 8*counter + 2] != -1) then //valid fat entry 
+            if([FAT + 8*counter] == filename) then 
+                counter = -1;
+                break;
+            endif;
+        else 
+            fat_idx = counter;
         endif;
         counter = counter + 1;
     endwhile;
@@ -33,7 +34,7 @@ if(sys_call_no == 1) then
         else 
             //searching for free disk block
             alias block_idx S5;
-            counter = 0;
+            counter = 24; //user blocks start from 25th block (0-based)
             block_idx = -1;
             while(counter < 448) do //after 447, swap area exists
                 if([DISK_LIST + counter] == 0) then
@@ -53,7 +54,6 @@ if(sys_call_no == 1) then
                 [FAT + 8*fat_idx + 1] = 0;
                 [FAT + 8*fat_idx + 2] = block_idx;
                 //initialise the basic block 
-                load(1,block_idx);
                 counter = 0;
                 while(counter < 512) do 
                     [SCRATCHPAD + counter] = -1;
@@ -68,4 +68,75 @@ if(sys_call_no == 1) then
     endif;
 endif;
 
+//delete system call 
+if(sys_call_no == 4) then 
+    counter = 0;
+    while(counter < 64) do 
+        if([FILE_TABLE + 2*counter] != -1) then 
+            if([FAT + 8*[FILE_TABLE + 2*counter] + 2] != -1) then  
+                if([FAT + 8*[FILE_TABLE + 2*counter]] == filename) then  
+                    break;
+                endif;
+            endif;
+        endif;
+        counter = counter + 1;
+    endwhile;
+    if(counter != 64) then  
+        [return_address] = -1;
+    else
+        counter = 0;
+        while(counter < 64) do 
+            if([FAT + 8*counter + 2] != -1) then
+                if([FAT + 8*counter] == filename) then 
+                    break;
+                endif; 
+            endif;
+            counter = counter + 1;
+        endwhile;
+        fat_idx = counter;
+        if(fat_idx == 64) then //file doesn't exist on disk 
+            [return_address] = -1;
+        else  
+            alias basic_block S5;
+            basic_block = [FAT + 8*fat_idx + 2];
+            //clear the FAT entry
+
+            [FAT + 8*fat_idx] = -1;
+            [FAT + 8*fat_idx + 1] = 0;            
+            [FAT + 8*fat_idx + 2] = -1;
+
+            [DISK_LIST + basic_block] = 0; //marking the basic_block as free 
+            load(1,basic_block);
+            alias data_block S6;
+            counter = 0;
+            while(counter < 256) do 
+                data_block = [SCRATCHPAD + counter];
+                if(data_block != -1) then 
+                    if(data_block != "") then
+                        [DISK_LIST + data_block] = 0; 
+                        alias counter1 S7;
+                        counter1 = 0;
+                        while (counter1 < 512) do //initialising SCRATCHPAD with ""
+                            [SCRATCHPAD + counter1] = "";
+                            counter1 = counter1 + 1;
+                        endwhile;
+                        store(1,data_block);
+                        load(1,basic_block);            
+                    endif;
+                endif;
+                counter = counter + 1;
+            endwhile;
+            counter = 0;
+            while (counter < 512) do
+                [SCRATCHPAD + counter] = "";
+                counter = counter + 1;
+            endwhile;
+            store(1,basic_block);
+            store(5,19); //committing fat 
+            store(6,20); //committing disk free list 
+            [return_address] = 0;
+            endif;
+        endif;
+endif;
 ireturn;
+

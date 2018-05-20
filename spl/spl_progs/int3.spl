@@ -1,0 +1,89 @@
+alias sys_call_no S0;
+alias return_address S1;
+alias fd S2;
+alias pid S3;
+alias pcb S4;
+
+sys_call_no = [[PTBR + 2*((SP-1)/512)]*512 + (SP-1)%512];
+return_address = [PTBR + 2*((SP-2)/512)]*512 + (SP-2)%512;
+fd = [[PTBR + 2*((SP-4)/512)]*512 + (SP-4)%512];
+pid = (PTBR - PAGE_TABLE) / 8;
+pcb = READY_LIST + 32*pid;
+
+//seek system call 
+if (sys_call_no == 6) then
+    alias new_seek S5;    
+    new_seek = [[PTBR + 2*((SP-3)/512)]*512 + (SP-3)%512];
+    if (fd < 0) then
+        [return_address] = -1;
+    else 
+        if (fd >= 8) then
+            [return_address] = -1;
+        else 
+            if ([pcb + 15 + 2*fd] == -1) then
+                [return_address] = -1;
+            else 
+                //fd is in range[0,8), and per process file table entry is valid
+                alias sys_idx S6;
+                alias lseek S7;
+                alias fat_idx S8;
+                alias file_size S9;
+                sys_idx = [pcb + 15 + 2*fd];
+                lseek = [pcb + 15 + 2*fd + 1];                
+                fat_idx = [FILE_TABLE + 2*sys_idx];
+                file_size = [FAT + 8*fat_idx + 1];
+                if (new_seek < 0) then
+                    [return_address] = -1;
+                else 
+                    if (new_seek > file_size) then
+                        [return_address] = -1;
+                    else 
+                        [pcb + 15 + 2*fd + 1] = new_seek;
+                        [return_address] = 0;
+                    endif;
+                endif;
+            endif;
+        endif;
+    endif;
+endif;
+
+//read system call 
+if (sys_call_no == 7) then
+    alias word_read S5;
+    word_read = [PTBR + 2*((SP-3)/512)]*512 + (SP-3)%512;   //dereference before storing
+    if (fd < 0) then
+        [return_address] = -1;
+    else 
+        if (fd >= 8) then
+            [return_address] = -1;
+        else 
+            if ([pcb + 15 + 2*fd] == -1) then
+                [return_address] = -1;
+            else 
+                //fd is in range[0,8), and per process file table entry is valid
+                alias sys_idx S6;
+                alias lseek S7;
+                alias fat_idx S8;
+                alias file_size S9;
+                alias basic_block S10;
+                sys_idx = [pcb + 15 + 2*fd];
+                lseek = [pcb + 15 + 2*fd + 1];                
+                fat_idx = [FILE_TABLE + 2*sys_idx];
+                file_size = [FAT + 8*fat_idx + 1];
+                if (lseek == file_size) then
+                    [return_address] = -1;
+                else 
+                    basic_block = [FAT + 8*fat_idx + 2];
+                    load(1,basic_block);
+                    load(1,[SCRATCHPAD + (lseek/512)]);
+                    [word_read] = [SCRATCHPAD + (lseek % 512)];
+                    [pcb + 15 + 2*fd + 1] = lseek + 1;
+                    [return_address] = 0;
+                endif;
+            endif;
+        endif;
+    endif;
+    
+endif;
+
+ireturn;

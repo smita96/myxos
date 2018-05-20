@@ -1,0 +1,107 @@
+alias sys_call_no S0;
+alias return_address S1;
+alias current_pid S2;
+alias current_pcb S3;
+alias counter S4;
+
+sys_call_no = [[PTBR + 2*((SP-1)/512)]*512 + (SP-1)%512];
+return_address = [PTBR + 2*((SP-2)/512)]*512 + (SP-2)%512;
+current_pid = (PTBR - PAGE_TABLE) / 8;
+current_pcb = READY_LIST + 32*current_pid;
+
+//open system call
+if(sys_call_no == 2) then
+    alias filename S5;
+    filename = [[PTBR + 2*((SP-3)/512)]*512 + (SP-3)%512];
+    //check if file with name filename exists in fat 
+    counter = 0;
+    while(counter < 64) do
+        if([FAT + 8*counter] == filename) then 
+            break;
+        endif;
+        counter = counter + 1;
+    endwhile;
+    if(counter == 64) then //file with name filename doesn't exist 
+        [return_address] = -1;
+    else 
+        alias fat_idx S6;
+        
+        fat_idx = counter;  
+        //check if this process's file table has space
+        counter = 0;
+        while(counter < 8) do 
+            if([current_pcb + 15 + 2*counter] == -1) then 
+                break;
+            endif;
+            counter = counter + 1;
+        endwhile;
+        if(counter == 8) then //per process open file table of current process has no space 
+            [return_address] = -1;
+        else 
+            alias fd S7;
+            alias sys_idx S8;
+            fd = counter;
+            //check if the file is already opened - system wide open file table 
+            counter = 0;
+            sys_idx = -1;
+            while(counter < 64) do  
+                if([FILE_TABLE + 2*counter] == fat_idx) then 
+                    sys_idx = counter;
+                    break;
+                endif;
+                if([FILE_TABLE + 2*counter] == -1) then 
+                    sys_idx = counter;
+                endif;    
+                counter = counter + 1;
+            endwhile;
+            if(counter == 64) then //means the file has no open instances
+                if(sys_idx == -1) then 
+                    [return_address] = -1;
+                else 
+                    [FILE_TABLE + 2*sys_idx] = fat_idx;
+                    [FILE_TABLE + 2*sys_idx + 1] = 1;
+                    [current_pcb + 15 + 2*fd] = sys_idx;
+                    [current_pcb + 15 + 2*fd + 1] = 0; //seek value
+                    [return_address] = fd;
+                endif;
+            else 
+                //means the file does have open instances 
+                [FILE_TABLE + 2*counter + 1] = [FILE_TABLE + 2*counter + 1] + 1;
+                [current_pcb + 15 + 2*fd] = sys_idx;
+                [current_pcb + 15 + 2*fd + 1] = 0; //seek value
+                [return_address] = fd;
+            endif;
+        endif;
+    endif;
+endif;
+
+//close system call 
+if(sys_call_no == 3) then 
+    alias fd S5;
+    fd = [[PTBR + 2*((SP-3)/512)]*512 + (SP-3)%512];
+    //check if fd is valid
+    if(fd < 0) then 
+        [return_address] = -1;
+    else 
+        if(fd >= 8) then 
+            [return_address] = -1;
+        else 
+            if([current_pcb + 15 + 2*fd] == -1) then 
+                [return_address] = -1;
+            else 
+                if([FILE_TABLE + 2*[current_pcb + 15 + 2*fd] + 1] == 1) then 
+                    [FILE_TABLE + 2*[current_pcb + 15 + 2*fd]] = -1;
+                    [FILE_TABLE + 2*[current_pcb + 15 + 2*fd] + 1] = 0;
+                else
+                    alias temp S6;
+                    temp = 2*[current_pcb + 15 + 2*fd] + 1;
+                    [FILE_TABLE + temp] = [FILE_TABLE + temp] - 1;
+                endif;
+                [current_pcb + 15 + 2*fd] = -1;
+                [return_address] = 0;
+            endif;
+        endif;
+    endif;
+endif;
+
+ireturn;

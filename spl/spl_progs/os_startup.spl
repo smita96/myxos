@@ -4,6 +4,17 @@ alias pid_init S2;
 alias counter S3;
 alias pcb S4;
 
+//initialising system wide open file table
+counter = 0;
+while(counter < 64) do 
+    [FILE_TABLE + 2*counter] = -1; //setting pointer to fat as -1
+    counter = counter + 1;
+endwhile;
+
+//loading FAT,disk_free_list
+load(5,19);
+load(6,20);
+
 //loading exception handler, timer & INT[1-7] interrupts
 memory_page = 7; 
 disk_block = 1;
@@ -15,10 +26,6 @@ while (memory_page <= 23) do
     memory_page = memory_page + 1; 
     disk_block = disk_block + 1;
 endwhile;
-
-//loading FAT,disk_free_list
-load(5,19);
-load(6,20);
 
 //loading init program
 memory_page = 25;
@@ -36,6 +43,7 @@ PTLR = 4;
 BP = (PTLR-1)*512;
 SP = BP;
 memory_page = 25;
+counter = 0;
 while (counter < PTLR) do
     [PTBR + 2*counter] = memory_page;
     [PTBR + 2*counter + 1] = "01";
@@ -52,6 +60,12 @@ pcb = READY_LIST + 32*pid_init;
 //IP can't be set 
 [pcb + 5] = PTBR;
 [pcb + 6] = PTLR;
+//setting up init per process open file table in init's pcb
+counter = 0;
+while(counter < 8) do 
+    [pcb + 15 + 2*counter] = -1;
+    counter = counter + 1;
+endwhile;
 
 [28*512] = 0; //top of stack, 4th page
 ireturn;
