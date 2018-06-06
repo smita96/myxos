@@ -1,1 +1,88 @@
-halt;
+alias sys_call_no S0;
+alias return_address S1;
+alias counter S2;
+
+sys_call_no = [[PTBR + 2*((SP-1)/512)]*512 + (SP-1)%512];
+return_address = [PTBR + 2*((SP-2)/512)]*512 + (SP-2)%512;
+
+
+//exit system call 
+if (sys_call_no == 10) then
+    //look for any ready process
+    counter = 0;
+    while (counter < 32) do
+        if ([READY_LIST + 32*counter +1] == 1) then
+            break;
+        endif;
+        counter = counter + 1;
+    endwhile;
+    if (counter != 32) then //some ready process exists  
+        alias sched_pid S7;
+        alias sched_pcb S8;
+        sched_pid = counter;
+        sched_pcb = READY_LIST + 32*sched_pid;
+        //leave no evidence of the process 
+        //clear the memory pages
+        counter = 0;
+        alias counter1 S3;
+        while (counter < PTLR) do
+            if ([PTBR + 2*counter + 1] == "01" || [PTBR + 2*counter + 1] == "11") then
+                [MEM_LIST + [PTBR + 2*counter]] = 0; //mark as free 
+                counter1 = 0;
+                while (counter1 < 512) do
+                    [[PTBR + 2*counter]*512 + counter1] = "";
+                    counter1 = counter1 + 1;
+                endwhile;
+            endif;
+            [PTBR + 2*counter] = -1;                
+            [PTBR + 2*counter + 1] = "00"; //unreferenced, invalid             
+            counter = counter + 1;
+        endwhile;
+        alias current_pid S4;
+        alias current_pcb S5;
+        current_pid = (PTBR - PAGE_TABLE) / 8;
+        current_pcb = READY_LIST + 32*current_pid;
+        //close all the open files 
+        counter = 0;
+        alias sys_idx S6;
+        while (counter < 8) do
+            if ([current_pcb + 15 + 2*counter] != -1) then
+                sys_idx = [current_pcb + 15 + 2*counter]; 
+                if ([FILE_TABLE + 2*sys_idx + 1] != 1) then
+                    [FILE_TABLE + 2*sys_idx + 1] = [FILE_TABLE + 2*sys_idx + 1] - 1;
+                else 
+                    [FILE_TABLE + 2*sys_idx] = -1; //invalidate the system wide open file table entry 
+                    [FILE_TABLE + 2*sys_idx + 1] = 0;
+                endif;
+                [current_pcb + 15 + 2*counter] = -1;
+            else 
+                break;
+            endif;
+            counter = counter + 1;
+        endwhile;
+        //mark the used pcb as free
+        [current_pcb + 1] = 0;
+
+        //scheduling the other ready process 
+        [sched_pcb + 1] = 2;
+        BP = [sched_pcb + 2];
+        SP = [sched_pcb + 3];
+        //something to do
+        PTBR = [sched_pcb + 5];
+        PTLR = [sched_pcb + 6];
+        R0 = [sched_pcb + 7];
+        R1 = [sched_pcb + 8];
+        R2 = [sched_pcb + 9];
+        R3 = [sched_pcb + 10];
+        R4 = [sched_pcb + 11];
+        R5 = [sched_pcb + 12];
+        R6 = [sched_pcb + 13];
+        R7 = [sched_pcb + 14];
+
+        SP = SP + 1;
+        [[PTBR + 2*(SP/512)]*512 + (SP%512)] = [sched_pcb + 4];
+        ireturn;
+    else //no ready process exists 
+        halt;
+    endif;
+endif;

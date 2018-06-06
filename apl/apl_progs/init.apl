@@ -1,38 +1,32 @@
+decl
+    integer delay(integer counter);
+enddecl
+
+integer delay(integer counter){
+    integer counter1;
+    counter1 = 0;
+    while (counter1 < counter) do
+        counter1 = counter1 + 1;
+    endwhile;
+
+    return 0;
+}
+
 integer main(){
-    integer status, filedesc;
+    integer status, counter;
     string filename;
-    filename = "new_file.txt";
-    string wordread;
-   
-    status = Create(filename);
-    if (status == 0) then
-        print("created");
-        filedesc = Open(filename);
-        if (filedesc != -1) then
-            print("opened");
-            status = Write(filedesc,"XOS");
-            if (status == 0) then
-                print("written");
-                status = Seek(0,0);
-                if (status == 0) then
-                    print("seek:0");
-                    status = Read(filedesc,wordread);
-                    if (status == 0) then
-                        print("read");
-                        print(wordread);
-                        status = Close(filedesc);
-                        if (status == 0) then
-                            print("closed");
-                            status = Delete(filename);
-                            if (status == 0) then
-                                print("deleted");
-                            endif;
-                        endif;
-                    endif;
-                endif;
-            endif;
-        endif;
-    endif;
-    
+
+    while(1 < 2) do //infinite loop
+        status = Fork();
+        if (status == -2) then
+            print("filename: ");
+            read(filename);
+            status = Exec(filename); 
+        else 
+            status = delay(1000); //delay so that parent process doesnt fork until the Exec's loaded code is done 
+            //this should actually be wait call, to be implemented later
+        endif;        
+    endwhile;
+
     return 0;
 }

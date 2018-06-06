@@ -4,7 +4,7 @@ integer main(){
     counter = 0;
     while(counter < 10) do
         if(counter % 2 != 0) then
-            print("Process-2");
+            print(counter);
         endif;
         counter = counter + 1;
     endwhile;

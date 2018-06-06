@@ -4,10 +4,28 @@ alias pid_init S2;
 alias counter S3;
 alias pcb S4;
 
+//initialising memory free list, till init process's stack 
+counter = 0;
+while (counter < 29) do
+    [MEM_LIST + counter] = 1;
+    counter = counter + 1;
+endwhile;
+while (counter < 64) do
+    [MEM_LIST + counter] = 0;
+    counter = counter + 1;
+endwhile;
+
 //initialising system wide open file table
 counter = 0;
 while(counter < 64) do 
     [FILE_TABLE + 2*counter] = -1; //setting pointer to fat as -1
+    counter = counter + 1;
+endwhile;
+
+//initialising all pcb's state as 0 --> free 
+counter = 0;
+while (counter < 32) do
+    [READY_LIST + 32*counter + 1] = 0;
     counter = counter + 1;
 endwhile;
 
@@ -40,8 +58,8 @@ endwhile;
 pid_init = 0; 
 PTBR = PAGE_TABLE + 8*pid_init;
 PTLR = 4;
-BP = (PTLR-1)*512;
-SP = BP;
+BP = (PTLR-1)*512; //no point in setting this?
+SP = BP; //no point in setting this?
 memory_page = 25;
 counter = 0;
 while (counter < PTLR) do

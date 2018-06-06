@@ -111,18 +111,16 @@ if(sys_call_no == 4) then
             counter = 0;
             while(counter < 256) do 
                 data_block = [SCRATCHPAD + counter];
-                if(data_block != -1) then 
-                    if(data_block != "") then
-                        [DISK_LIST + data_block] = 0; 
-                        alias counter1 S7;
-                        counter1 = 0;
+                if(data_block != -1 && data_block != "") then 
+                    [DISK_LIST + data_block] = 0; 
+                    alias counter1 S7;
+                    counter1 = 0;
                         while (counter1 < 512) do //initialising SCRATCHPAD with ""
-                            [SCRATCHPAD + counter1] = "";
-                            counter1 = counter1 + 1;
-                        endwhile;
-                        store(1,data_block);
-                        load(1,basic_block);            
-                    endif;
+                        [SCRATCHPAD + counter1] = "";
+                        counter1 = counter1 + 1;
+                    endwhile;
+                    store(1,data_block);
+                    load(1,basic_block); 
                 endif;
                 counter = counter + 1;
             endwhile;

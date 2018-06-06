@@ -83,7 +83,6 @@ if (sys_call_no == 7) then
             endif;
         endif;
     endif;
-    
 endif;
 
 ireturn;

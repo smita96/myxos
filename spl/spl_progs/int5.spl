@@ -1,0 +1,109 @@
+alias sys_call_no S0;
+alias return_address S1;
+alias parent_pid S2;
+alias parent_pcb S3;
+alias child_pid S4;
+alias child_pcb S5;
+alias child_ptbr S6; 
+alias counter S7;
+
+sys_call_no = [[PTBR + 2*((SP-1)/512)]*512 + (SP-1)%512];
+return_address = [PTBR + 2*((SP-2)/512)]*512 + (SP-2)%512;
+parent_pid = (PTBR - PAGE_TABLE) / 8;
+parent_pcb = READY_LIST + 32*parent_pid;
+
+//fork system call 
+if (sys_call_no == 8) then
+    //finding a free pcb 
+    counter = 0;
+    while (counter < 32) do
+        if ([READY_LIST + 32*counter + 1] == 0) then
+            child_pid = counter;
+            child_ptbr = PAGE_TABLE + 8*child_pid;            
+            child_pcb = READY_LIST + 32*child_pid;
+            break;
+        endif;
+        counter = counter + 1;
+    endwhile;
+    if (counter == 32) then
+        [return_address] = -1;
+    else 
+        //counting number of pages used by current process 
+        alias used_pages S8;        
+        used_pages = 0;        
+        counter = 0;
+        while (counter < PTLR) do
+            if ([PTBR + 2*counter + 1] == "01" || [PTBR + 2*counter + 1] == "11") then
+                used_pages = used_pages + 1;
+            endif;
+            counter = counter + 1;
+        endwhile;
+        //counting number of available pages 
+        alias avail_pages S9;
+        avail_pages = 0;
+        counter = 29;
+        while (counter < 64) do
+            if ([MEM_LIST + counter] == 0) then
+                [child_ptbr + 2*avail_pages] = counter;
+                avail_pages = avail_pages + 1;
+                if (avail_pages ==  used_pages) then
+                    break;
+                endif;
+            endif;
+            counter = counter + 1;
+        endwhile;
+        if (avail_pages < used_pages) then
+            [return_address] = -1;
+        else 
+            //mark new pages as allocated and copy parent's pages to child's pages
+            alias counter1 S10;
+            counter = 0;
+            while (counter < PTLR) do
+                //check if entry valid
+                if ([PTBR + 2*counter + 1] == "01" || [PTBR + 2*counter +1 ] == "11") then
+                    [MEM_LIST + [child_ptbr + 2*counter]] = 1;
+                    [child_ptbr + 2*counter + 1] = [PTBR + 2*counter + 1];
+                    //copy the contents
+                    counter1 = 0;
+                    while (counter1 < 512) do
+                        [[child_ptbr + 2*counter]*512 + counter1] = [[PTBR + 2*counter]*512 + counter1];
+                        counter1 = counter1 + 1;
+                    endwhile;
+                endif;
+                counter = counter + 1;
+            endwhile;
+
+            //initialise the child's pcb 
+            [child_pcb] = child_pid; 
+            [child_pcb + 1] = 1; //state --> ready 
+            [child_pcb + 2] = BP;
+            [child_pcb + 3] = SP - 1;
+            [child_pcb + 4] = [[PTBR + 2*(SP/512)]*512 + (SP)%512];
+            [child_pcb + 5] = child_ptbr;
+            [child_pcb + 6] = PTLR;
+            [child_pcb + 7] = R0;
+            [child_pcb + 8] = R1;
+            [child_pcb + 9] = R2;
+            [child_pcb + 10] = R3;
+            [child_pcb + 11] = R4;
+            [child_pcb + 12] = R5;
+            [child_pcb + 13] = R6;
+            [child_pcb + 14] = R7;
+            //copy the per process open file table 
+            counter = 0;
+            while (counter < 8) do
+                if ([parent_pcb + 15 + 2*counter] != -1) then
+                    [child_pcb + 15 + 2*counter] = [parent_pcb + 15 + 2*counter];
+                    [child_pcb + 15 + 2*counter + 1] = [parent_pcb + 15 + 2*counter + 1];    
+                    [FILE_TABLE + 2*[child_pcb + 15 + 2*counter] + 1] =  [FILE_TABLE + 2*[child_pcb + 15 + 2*counter] + 1] + 1;
+                else 
+                    [child_pcb + 15 + 2*counter] = -1;
+                endif;
+                counter = counter + 1;
+            endwhile;
+            [return_address] = child_pid;
+            [[child_ptbr + 2*((SP-2)/512)]*512 + (SP-2)%512] = -2;
+        endif;
+    endif;
+endif;
+ireturn;
