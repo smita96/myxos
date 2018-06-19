@@ -10,11 +10,13 @@ if (sys_call_no == 10) then
     //look for any ready process
     alias current_pid S4;
     alias current_pcb S5;
+    alias sched_pcb S6;
     current_pid = (PTBR - PAGE_TABLE) / 8;
     current_pcb = READY_LIST + 32*current_pid;
     counter = 0;
     while (counter < 32) do
         if ([READY_LIST + 32*counter +1] == 1 || [READY_LIST + 32*counter + 1] == 100 + current_pid) then
+            sched_pcb = READY_LIST + 32*counter;
             [READY_LIST + 32*counter + 1] = 1;
             break;
         endif;
@@ -76,19 +78,8 @@ if (sys_call_no == 10) then
         endwhile;
         [current_pcb + 1] = 0;
         
-        //scheduler 
-        alias counter S0;
-        alias sched_pcb S1;
-        return_address = [PTBR + 2*((SP-2)/512)]*512 + (SP-2)%512;
-        counter = 0;
-        while (counter < 32) do
-            if ([READY_LIST + 32*counter + 1] == 1) then
-                sched_pcb = READY_LIST + 32*counter;
-                break;
-            endif;          
-            counter = counter + 1;
-        endwhile;
-        
+        //scheduler
+
         //scheduling the other ready process 
         [sched_pcb + 1] = 2;
         BP = [sched_pcb + 2];
@@ -131,7 +122,7 @@ if (sys_call_no == 13) then
         //transfer control to scheduler part of exit system call 
         //[current_pcb + 4] = [[PTBR + 2*(SP/512)]*512 + (SP%512)];
         //try jumping to timer code 
-        inline "JMP 04634"; //jumping to timer code on page 9
+        inline "JMP 04608"; //jumping to timer code on page 9
     endif;
 endif;
 

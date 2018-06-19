@@ -25,11 +25,9 @@ if (cause != 0) then
             endif;
         endif;
     endif;
-    //the process which invoked the exception must exit, coding pending for this 
-    
     SP = SP + 1;
     [[PTBR + 2*((SP-1)/512)]*512 + ((SP-1)%512)] = 10; //exit system call number is 10
-    inline "JMP 11776";
+    inline "JMP 11776"; //jumping to INT7 to exit system call 
 
     else
         //print("page fault");

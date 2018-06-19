@@ -1,0 +1,28 @@
+{
+	//add this file in Visual code snippets, and enjoy tab completion feature for the contructs.
+	//1. Type ww and hit TAB for while loop 
+	//2. Type ii and hit TAB for if condition
+
+	"while_loop": {
+		"prefix": "ww",
+		"body": [
+			"$1 = $2;",
+			"while (${1:variable} ${3:cmp} ${4:value}) do",
+			"\t$5",
+			"\t$1 = $1 + 1;",
+			"endwhile;",
+			"$0"
+		],
+		"description": "While Loop"
+	},
+	"if_cond": {
+		"prefix": "ii",
+		"body": [
+			"if (${1:variable} ${2:cmp} ${3:value}) then",
+			"\t$4",
+			"endif;",
+			"$0"
+		],
+		"description": "If Condition"
+	}
+}

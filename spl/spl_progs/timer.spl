@@ -1,44 +1,36 @@
 alias current_pid S0;
 alias current_pcb S1;
-current_pid = (PTBR - PAGE_TABLE)/8;
-current_pcb = READY_LIST + 32*current_pid;
-[current_pcb + 1] = 1; // running --> ready 
-
-//jump here for scheduling for wait system call
-//any change above this line will require a change in INT7's Wait() system call.
-
-alias curr_pid S0;
-alias curr_pcb S1;
-curr_pid = (PTBR - PAGE_TABLE)/8;
-curr_pcb = READY_LIST + 32*curr_pid;
 alias current_phy_sp S2;
 alias counter S3;
 alias new_pid S4;
 alias new_pcb S5;
 
-
-curr_pid = (PTBR - PAGE_TABLE) / 8;
+current_pid = (PTBR - PAGE_TABLE) / 8;
+current_pcb = READY_LIST + 32*current_pid;
 current_phy_sp = [PTBR + 2*(SP/512)]*512 + (SP%512);
 
+if ([current_pcb + 1] < 100) then //in case Wait() process system call made a jump here 
+    [current_pcb + 1] = 1;
+endif;
 //saving the state of the current running process
-[curr_pcb + 2] = BP;
-[curr_pcb + 3] = SP - 1; //as IP got pushed on the stack when interrupt occurred, the value of SP got incremented,its actual value is SP-1
+[current_pcb + 2] = BP;
+[current_pcb + 3] = SP - 1; //as IP got pushed on the stack when interrupt occurred, the value of SP got incremented,its actual value is SP-1
 //IP is pushed on the stack something like that...
-[curr_pcb + 4] = [current_phy_sp];
-[curr_pcb + 5] = PTBR; //check if this is necessary
-[curr_pcb + 6] = PTLR; // ----do----
-[curr_pcb + 7] = R0;
-[curr_pcb + 8] = R1;
-[curr_pcb + 9] = R2;
-[curr_pcb + 10] = R3;
-[curr_pcb + 11] = R4;
-[curr_pcb + 12] = R5;
-[curr_pcb + 13] = R6;
-[curr_pcb + 14] = R7;
+[current_pcb + 4] = [current_phy_sp];
+[current_pcb + 5] = PTBR; //check if this is necessary
+[current_pcb + 6] = PTLR; // ----do----
+[current_pcb + 7] = R0;
+[current_pcb + 8] = R1;
+[current_pcb + 9] = R2;
+[current_pcb + 10] = R3;
+[current_pcb + 11] = R4;
+[current_pcb + 12] = R5;
+[current_pcb + 13] = R6;
+[current_pcb + 14] = R7;
 
 //finding process to be scheduled next
-counter = curr_pid + 1;
-while(counter != curr_pid) do
+counter = current_pid + 1;
+while(counter != current_pid) do
     if(counter == 32) then 
         counter = 0;
     endif;
