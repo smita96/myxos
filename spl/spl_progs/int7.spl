@@ -5,43 +5,57 @@ alias counter S2;
 sys_call_no = [[PTBR + 2*((SP-1)/512)]*512 + (SP-1)%512];
 return_address = [PTBR + 2*((SP-2)/512)]*512 + (SP-2)%512;
 
-
 //exit system call 
 if (sys_call_no == 10) then
     //look for any ready process
+    alias current_pid S4;
+    alias current_pcb S5;
+    current_pid = (PTBR - PAGE_TABLE) / 8;
+    current_pcb = READY_LIST + 32*current_pid;
     counter = 0;
     while (counter < 32) do
-        if ([READY_LIST + 32*counter +1] == 1) then
+        if ([READY_LIST + 32*counter +1] == 1 || [READY_LIST + 32*counter + 1] == 100 + current_pid) then
+            [READY_LIST + 32*counter + 1] = 1;
             break;
         endif;
         counter = counter + 1;
     endwhile;
-    if (counter != 32) then //some ready process exists  
-        alias sched_pid S7;
-        alias sched_pcb S8;
-        sched_pid = counter;
-        sched_pcb = READY_LIST + 32*sched_pid;
+    if (counter != 32) then //some ready process exists
         //leave no evidence of the process 
         //clear the memory pages
         counter = 0;
         alias counter1 S3;
         while (counter < PTLR) do
             if ([PTBR + 2*counter + 1] == "01" || [PTBR + 2*counter + 1] == "11") then
-                [MEM_LIST + [PTBR + 2*counter]] = 0; //mark as free 
-                counter1 = 0;
-                while (counter1 < 512) do
-                    [[PTBR + 2*counter]*512 + counter1] = "";
-                    counter1 = counter1 + 1;
-                endwhile;
+                [MEM_LIST + [PTBR + 2*counter]] = [MEM_LIST + [PTBR + 2*counter]] - 1; //decrement the count 
+                if ([MEM_LIST + [PTBR + 2*counter]] == 0) then //erase the contents of the page only when its count becomes 0, as it may be used by others.
+                    counter1 = 0;
+                    while (counter1 < 512) do
+                        [[PTBR + 2*counter]*512 + counter1] = "";
+                        counter1 = counter1 + 1;
+                    endwhile;
+                endif;
+            else 
+                if ([PTBR + 2*counter + 1] == "00") then
+                    if ([PTBR + 2*counter] >= 448 && [PTBR + 2*counter] < 512) then //valid disk block 
+                        [DISK_LIST + [PTBR + 2*counter]] = [DISK_LIST + [PTBR + 2*counter]] - 1;
+                        if ([DISK_LIST + [PTBR + 2*counter]] == 0) then //clear the disks data 
+                            counter1 = 0;
+                            while (counter1 < 512) do
+                                [SCRATCHPAD + counter1] = "";
+                                counter1 = counter1 + 1;
+                            endwhile;
+                            store(1,[PTBR + 2*counter]);
+                        endif;
+                        
+                    endif;
+                endif;
             endif;
             [PTBR + 2*counter] = -1;                
             [PTBR + 2*counter + 1] = "00"; //unreferenced, invalid             
             counter = counter + 1;
         endwhile;
-        alias current_pid S4;
-        alias current_pcb S5;
-        current_pid = (PTBR - PAGE_TABLE) / 8;
-        current_pcb = READY_LIST + 32*current_pid;
+        
         //close all the open files 
         counter = 0;
         alias sys_idx S6;
@@ -55,14 +69,26 @@ if (sys_call_no == 10) then
                     [FILE_TABLE + 2*sys_idx + 1] = 0;
                 endif;
                 [current_pcb + 15 + 2*counter] = -1;
-            else 
-                break;
+            //else 
+            //    break;
             endif;
             counter = counter + 1;
         endwhile;
-        //mark the used pcb as free
         [current_pcb + 1] = 0;
-
+        
+        //scheduler 
+        alias counter S0;
+        alias sched_pcb S1;
+        return_address = [PTBR + 2*((SP-2)/512)]*512 + (SP-2)%512;
+        counter = 0;
+        while (counter < 32) do
+            if ([READY_LIST + 32*counter + 1] == 1) then
+                sched_pcb = READY_LIST + 32*counter;
+                break;
+            endif;          
+            counter = counter + 1;
+        endwhile;
+        
         //scheduling the other ready process 
         [sched_pcb + 1] = 2;
         BP = [sched_pcb + 2];
@@ -81,8 +107,46 @@ if (sys_call_no == 10) then
 
         SP = SP + 1;
         [[PTBR + 2*(SP/512)]*512 + (SP%512)] = [sched_pcb + 4];
-        ireturn;
     else //no ready process exists 
         halt;
     endif;
 endif;
+
+//wait process system call
+if (sys_call_no == 13) then
+    alias current_pid S3;
+    alias waiting_pid S4;
+    alias waiting_pcb S5;
+    alias current_pcb S6;
+    current_pid = (PTBR - PAGE_TABLE)/8;
+    current_pcb = READY_LIST + 32*current_pid;
+    waiting_pid = [[PTBR + 2*((SP-3)/512)]*512 + (SP-3)%512];
+    waiting_pcb = READY_LIST + 32*waiting_pid;
+
+    if ([waiting_pcb + 1] == 0 || [waiting_pcb + 1] == 2) then  
+        [return_address] = -1;
+    else 
+        [current_pcb + 1] = 100 + waiting_pid;
+        [return_address] = 0; //this will be returned as and when the process is rescheduled  
+        //transfer control to scheduler part of exit system call 
+        //[current_pcb + 4] = [[PTBR + 2*(SP/512)]*512 + (SP%512)];
+        //try jumping to timer code 
+        inline "JMP 04634"; //jumping to timer code on page 9
+    endif;
+endif;
+
+//signal process system call
+if (sys_call_no == 14) then
+    alias current_pid S3;
+    current_pid = (PTBR - PAGE_TABLE)/8;
+    [return_address] = -1;
+    counter = 0;
+    while (counter < 32) do
+        if ([READY_LIST + 32*counter + 1] == 100 + current_pid) then
+            [READY_LIST + 32*counter + 1] = 1;
+            [return_address] = 0;
+        endif;
+        counter = counter + 1;
+    endwhile;
+endif;
+ireturn;

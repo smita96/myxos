@@ -1,1 +1,57 @@
-halt;
+alias cause S0;
+alias vpagenum S1;
+alias ip_addr S2;
+alias counter S3;
+alias free_page S4;
+alias pid S5;
+
+cause = EFR % 10;		// Gets value of cause field (size 1 char)
+vpagenum = (EFR / 10) % 100;    // Gets value of BadVAddr 
+ip_addr = (EFR/1000);	//Gets value of IP at the point 
+pid = (PTBR - PAGE_TABLE)/8;
+
+if (cause != 0) then
+    if (cause == 1) then
+        print("ill_inst");
+    else 
+        if (cause == 2) then
+            print("ill_mo_access");
+        else 
+            if (cause == 3) then
+                print("arithmetic_ex");
+            else 
+                //cause := 4
+                print("ill_operands");
+            endif;
+        endif;
+    endif;
+    //the process which invoked the exception must exit, coding pending for this 
+    
+    SP = SP + 1;
+    [[PTBR + 2*((SP-1)/512)]*512 + ((SP-1)%512)] = 10; //exit system call number is 10
+    inline "JMP 11776";
+
+    else
+        //print("page fault");
+        //page fault has occurred 
+        //find a free page for now, later we will implement second chance algorithm
+        counter = 25;
+        while (counter < 64) do
+            if ([MEM_LIST + counter] == 0) then
+                [MEM_LIST + counter] = 1;
+                break;
+            endif;
+            counter = counter + 1;
+        endwhile;   
+        if (counter == 64) then
+            print("0"); //exit code
+        else 
+            free_page = counter; 
+            load(free_page,[PTBR + 2*vpagenum]);
+            [PTBR + 2*vpagenum] = free_page;
+            [PTBR + 2*vpagenum + 1] = "01";
+            SP = SP + 1;
+            [[PTBR + 2*(SP/512)]*512 + SP%512] = ip_addr;
+            ireturn;
+        endif;
+endif;

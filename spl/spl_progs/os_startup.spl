@@ -4,9 +4,9 @@ alias pid_init S2;
 alias counter S3;
 alias pcb S4;
 
-//initialising memory free list, till init process's stack 
+//initialising memory free list
 counter = 0;
-while (counter < 29) do
+while (counter < 25) do
     [MEM_LIST + counter] = 1;
     counter = counter + 1;
 endwhile;
@@ -29,9 +29,18 @@ while (counter < 32) do
     counter = counter + 1;
 endwhile;
 
-//loading FAT,disk_free_list
+//loading FAT
 load(5,19);
+//loading disk free list 
 load(6,20);
+
+//mark the swap area disk blocks as free 
+counter = 448;
+while (counter < 512) do
+    [DISK_LIST + counter] = 0; 
+    counter = counter + 1;
+endwhile;
+
 
 //loading exception handler, timer & INT[1-7] interrupts
 memory_page = 7; 
@@ -45,14 +54,7 @@ while (memory_page <= 23) do
     disk_block = disk_block + 1;
 endwhile;
 
-//loading init program
-memory_page = 25;
-disk_block = 21;
-while (memory_page <= 27) do 
-    load(memory_page,disk_block);
-    memory_page = memory_page + 1;
-    disk_block = disk_block + 1;
-endwhile;
+//init's code pages need not be loaded now 
 
 //setting up init page table 
 pid_init = 0; 
@@ -60,14 +62,22 @@ PTBR = PAGE_TABLE + 8*pid_init;
 PTLR = 4;
 BP = (PTLR-1)*512; //no point in setting this?
 SP = BP; //no point in setting this?
-memory_page = 25;
+
+//copied code data block's number into page table 
+disk_block = 21;
 counter = 0;
-while (counter < PTLR) do
-    [PTBR + 2*counter] = memory_page;
-    [PTBR + 2*counter + 1] = "01";
-    memory_page = memory_page + 1;
+while (counter < PTLR - 1) do
+    [PTBR + 2*counter] = disk_block;
+    [PTBR + 2*counter + 1] = "00";
+    disk_block = disk_block + 1;
     counter = counter + 1;
 endwhile;
+
+//assign a memory page for init's stack 
+[MEM_LIST + 25] = 1; //mark as used 
+[PTBR + 2*(PTLR-1)] = 25;
+[PTBR + 2*(PTLR-1) + 1] = "01";
+
 
 //setting up init pcb
 pcb = READY_LIST + 32*pid_init;
@@ -75,7 +85,7 @@ pcb = READY_LIST + 32*pid_init;
 [pcb + 1] = 2; //state -- running
 [pcb + 2] = BP;//BP
 [pcb + 3] = SP; //SP
-//IP can't be set 
+//IP can't be set this way 
 [pcb + 5] = PTBR;
 [pcb + 6] = PTLR;
 //setting up init per process open file table in init's pcb
@@ -84,6 +94,7 @@ while(counter < 8) do
     [pcb + 15 + 2*counter] = -1;
     counter = counter + 1;
 endwhile;
+[pcb + 31] = 0; //parent pid of init is 0 (itself)
 
-[28*512] = 0; //top of stack, 4th page
+[25*512] = 0; //top of stack, 4th page is now 25
 ireturn;

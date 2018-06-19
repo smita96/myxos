@@ -18,6 +18,7 @@ cd $HOME/myxos/apl
 ./apl ./apl_progs/odd.apl
 
 
+
 cd $HOME/myxos/xfs-interface/
 ./xfs-interface load --int=1 ../spl/spl_progs/int1.xsm
 ./xfs-interface load --int=2 ../spl/spl_progs/int2.xsm

@@ -1,32 +1,27 @@
-decl
-    integer delay(integer counter);
+decl 
+    integer wait(integer n);
 enddecl
 
-integer delay(integer counter){
-    integer counter1;
-    counter1 = 0;
-    while (counter1 < counter) do
-        counter1 = counter1 + 1;
+integer wait(integer n){
+    integer counter;
+    counter = 0;
+    while (counter < n) do
+        counter = counter + 1;
     endwhile;
-
     return 0;
 }
 
 integer main(){
-    integer status, counter;
-    string filename;
-
-    while(1 < 2) do //infinite loop
-        status = Fork();
-        if (status == -2) then
-            print("filename: ");
-            read(filename);
-            status = Exec(filename); 
-        else 
-            status = delay(1000); //delay so that parent process doesnt fork until the Exec's loaded code is done 
-            //this should actually be wait call, to be implemented later
-        endif;        
-    endwhile;
-
+    integer status ;
+    status = Fork();
+    if (status == 1) then
+        status = Wait(1);
+        print("parent");
+    else
+        print("child");
+        status = 1/0; //this makes the child process exit 
+        print("after div"); //never gets executed 
+    endif;
+    
     return 0;
 }
