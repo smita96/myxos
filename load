@@ -17,6 +17,8 @@ cd $HOME/myxos/apl
 ./apl ./apl_progs/hello_w.apl
 ./apl ./apl_progs/odd.apl
 ./apl ./apl_progs/fib.apl
+./apl ./apl_progs/fork.apl
+
 
 
 
@@ -35,3 +37,5 @@ cd $HOME/myxos/xfs-interface/
 ./xfs-interface load --exec ../apl/apl_progs/hello_w.xsm
 ./xfs-interface load --exec ../apl/apl_progs/odd.xsm
 ./xfs-interface load --exec ../apl/apl_progs/fib.xsm
+./xfs-interface load --exec ../apl/apl_progs/fork.xsm
+

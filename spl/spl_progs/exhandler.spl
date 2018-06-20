@@ -3,12 +3,12 @@ alias vpagenum S1;
 alias ip_addr S2;
 alias counter S3;
 alias free_page S4;
-alias pid S5;
+alias current_pid S5;
 
 cause = EFR % 10;		// Gets value of cause field (size 1 char)
 vpagenum = (EFR / 10) % 100;    // Gets value of BadVAddr 
 ip_addr = (EFR/1000);	//Gets value of IP at the point 
-pid = (PTBR - PAGE_TABLE)/8;
+current_pid = (PTBR - PAGE_TABLE)/8;
 
 if (cause != 0) then
     if (cause == 1) then
@@ -28,28 +28,86 @@ if (cause != 0) then
     SP = SP + 1;
     [[PTBR + 2*((SP-1)/512)]*512 + ((SP-1)%512)] = 10; //exit system call number is 10
     inline "JMP 11776"; //jumping to INT7 to exit system call 
-
-    else
-        //print("page fault");
-        //page fault has occurred 
-        //find a free page for now, later we will implement second chance algorithm
-        counter = 25;
-        while (counter < 64) do
-            if ([MEM_LIST + counter] == 0) then
-                [MEM_LIST + counter] = 1;
+else
+    //print("page fault");
+    //page fault has occurred 
+    //find a free page for now, later we will implement second chance algorithm
+    //implementing now 
+    free_page = -1;
+    counter = 25;
+    while (counter < 64) do
+        if ([MEM_LIST + counter] == 0) then
+            [MEM_LIST + counter] = 1;
+            free_page = counter; //no need of swapping this way 
+            break;
+        endif;
+        counter = counter + 1;
+    endwhile;   
+    if (counter == 64) then
+        //use the second chance algorithm, if still no success, exit the calling process 
+        //second chance algorithm 
+        alias rounds S6;
+        alias counter1 S7;
+        alias ptbr S8;
+        alias counter2 S9;
+        rounds = 0;
+        counter = current_pid;
+        while (rounds < 3) do
+            if (counter == current_pid) then //this is to make sure that we don't keep on searching 
+                rounds = rounds + 1;
+            endif;
+            ptbr = PAGE_TABLE + 8*counter;
+            counter1 = 0;
+            while (counter1 < PTLR - 1) do //not replacing the stack page                 
+                if ([ptbr + 2*counter1 + 1] == "01") then //this memory page can be swapped out 
+                    if ([MEM_LIST + [ptbr + 2*counter1]] == 1) then //only used by one process 
+                        counter2 = 448;
+                        while (counter2 < 512) do
+                            if ([DISK_LIST + counter2] == 0) then //can be used as swapping block 
+                                free_page = [ptbr + 2*counter1]; //only when everything is satisfied, we are updating free_page variable from -1
+                                [DISK_LIST + counter2] = 1;
+                                store(free_page,counter2);
+                                [ptbr + 2*counter] = counter2;
+                                [ptbr + 2*counter + 1] = "00";    
+                                break;
+                            endif;
+                            counter2 = counter2 + 1;
+                        endwhile;
+                        
+                    endif;
+                else
+                    if ([ptbr + 2*counter1 + 1] == "11") then //this memory page was recently used, give it a second chance 
+                        [ptbr + 2*counter1 + 1] = "01";                            
+                    endif;
+                endif;
+                counter1 = counter1 + 1;
+            endwhile;
+            if (free_page != -1) then
                 break;
             endif;
             counter = counter + 1;
-        endwhile;   
-        if (counter == 64) then
-            print("0"); //exit code
-        else 
-            free_page = counter; 
-            load(free_page,[PTBR + 2*vpagenum]);
-            [PTBR + 2*vpagenum] = free_page;
-            [PTBR + 2*vpagenum + 1] = "01";
+            if (counter == 32) then
+                counter = 0;
+            endif;
+        endwhile;
+        if (free_page == -1) then //exit the process where page fault occurred 
             SP = SP + 1;
-            [[PTBR + 2*(SP/512)]*512 + SP%512] = ip_addr;
-            ireturn;
+            [[PTBR + 2*((SP-1)/512)]*512 + ((SP-1)%512)] = 10; //exit system call number is 10
+            inline "JMP 11776"; //jumping to INT7 to exit system call 
         endif;
+    endif;
+    if (free_page != -1) then
+        counter = 0;
+        while (counter < 512) do
+            [free_page*512 + counter] = "";
+            counter = counter + 1;
+        endwhile;
+        load(free_page,[PTBR + 2*vpagenum]);
+        [PTBR + 2*vpagenum] = free_page;
+        [PTBR + 2*vpagenum + 1] = "01";
+        SP = SP + 1;
+        [[PTBR + 2*(SP/512)]*512 + SP%512] = ip_addr;
+        
+    endif;
 endif;
+ireturn;

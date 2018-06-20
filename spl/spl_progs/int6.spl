@@ -86,7 +86,7 @@ if (sys_call_no == 9) then
 
         //rest code for loading desirable process's code into memory 
         //4. Set stack for new process 
-        [MEM_LIST + stack_page] = 1; //this will remain 1 as long as this process is not terminated, acc to current system protocol
+        [MEM_LIST + stack_page] = 1; //this will remain 1 as long as this process is not terminated, acc to current os protocol 
         [PTBR + 2*(PTLR-1)] = stack_page;
         [PTBR + 2*(PTLR-1) + 1] = "01";
         
