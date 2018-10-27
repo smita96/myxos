@@ -16,5 +16,7 @@ integer main(){
     integer n;
     read(n);
     print(fibonacci(n));
+    read(n);
+    print(fibonacci(n));
     return 0;
 }
